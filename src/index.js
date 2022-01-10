@@ -13,9 +13,15 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// import spotifyAPI from "spotify-web-api-js";
+
 let client_id = process.env.CLIENT_ID; // Your client id
 let client_secret = process.env.CLIENT_SECRET; // Your secret
 let redirect_uri = process.env.REDIRECT_URI; // Your redirect uri
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 let generateRandomString = function (length) {
   let text = "";
@@ -95,6 +101,7 @@ app.get("/callback", function (req, res) {
 
         console.log(access_token);
         updater(access_token);
+        // spotifyAPI.setAccessToken(access_token);
 
         let options = {
           url: "https://api.spotify.com/v1/me",
@@ -176,6 +183,7 @@ const getLikedSongs = async (
   }
 
   if (data.next) {
+    sleep(5000);
     await getLikedSongs(access_token, data.next, likedSongs);
   }
   return likedSongs;
@@ -200,6 +208,7 @@ const getLikedSongsPlaylist = async (
   }
 
   if (data.next) {
+    sleep(5000);
     await getLikedSongsPlaylist(access_token, data.next, likedSongsMap);
   }
   return { map: likedSongsMap, length: data.total };
@@ -227,7 +236,7 @@ const copyLikedSongs = (
         likedSongs.set(item.track.name, item.track.uri);
       }
       // console.log(`Limit: ${res.limit}, Next: ${res.next}`);
-      postSongs([...likedSongs.values()].join(","), access_token);
+      postSongs([...likedSongs.values()].join(","), 0, access_token);
       // recursion go brrr
       if (res.next) copyLikedSongs(access_token, res.next);
     });
@@ -287,5 +296,5 @@ const updater = async (access_token) => {
         songCount += 50;
       }
     }
-  }, 1000 * 30);
+  }, 1000 * 60);
 };
