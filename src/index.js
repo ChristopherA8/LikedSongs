@@ -370,7 +370,7 @@ const updater = async () => {
     access_token = await getRefreshedAccessToken();
     global_access_token = access_token;
     console.log(logPrefix() + "Token refreshed: " + chalk.green(access_token));
-  }, 1000 * 60 * 58);
+  }, 1000 * 60 * 30);
 
   // Keep liked songs playlist updated with users liked songs
   setInterval(async () => {
