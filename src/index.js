@@ -1,23 +1,29 @@
+// Server
 import express from "express"; // Express web server framework
 import request from "request"; // "Request" library
 import cors from "cors";
 import querystring from "querystring";
 import cookieParser from "cookie-parser";
 
+// API
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
 
+// filename and dirname in a module
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// import spotifyAPI from "spotify-web-api-js";
+// Util
+import chalk from "chalk";
 
 let client_id = process.env.CLIENT_ID; // Your client id
 let client_secret = process.env.CLIENT_SECRET; // Your secret
 let redirect_uri = process.env.REDIRECT_URI; // Your redirect uri
+
+let global_refresh_token = "";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,6 +38,20 @@ let generateRandomString = function (length) {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
   return text;
+};
+
+// returns colored string with time for console logging
+const logPrefix = () => {
+  return (
+    chalk.whiteBright("|") +
+    chalk.blue(
+      `${new Date().toLocaleTimeString("en-US", {
+        timeZone: "America/Chicago",
+      })}`
+    ) +
+    chalk.whiteBright("|") +
+    " "
+  );
 };
 
 let stateKey = "spotify_auth_state";
@@ -99,9 +119,17 @@ app.get("/callback", function (req, res) {
         let access_token = body.access_token,
           refresh_token = body.refresh_token;
 
-        console.log(access_token);
+        global_refresh_token = body.refresh_token;
+        console.log(
+          "-------------------------------------------------------------"
+        );
+        console.log(`refresh_token: ${chalk.green(global_refresh_token)}`);
+        console.log(`access_token: ${chalk.green(access_token)}`);
+        console.log(
+          "-------------------------------------------------------------"
+        );
+        // test(access_token);
         updater(access_token);
-        // spotifyAPI.setAccessToken(access_token);
 
         let options = {
           url: "https://api.spotify.com/v1/me",
@@ -214,6 +242,54 @@ const getLikedSongsPlaylist = async (
   return { map: likedSongsMap, length: data.total };
 };
 
+// This is unused because it includes other stuff too
+const getLikedSongsLength = async (access_token) => {
+  let res = await fetch(
+    "https://api.spotify.com/v1/me/tracks?limit=1&offset=0",
+    {
+      headers: {
+        Authorization: "Bearer " + access_token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  let data = await res.json();
+  return data.total;
+};
+
+const getLikedSongsPlaylistLength = async (access_token) => {
+  let res = await fetch(
+    `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks?fields=total&limit=1&offset=0`,
+    {
+      headers: {
+        Authorization: "Bearer " + access_token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  let data = await res.json();
+  return data.total;
+};
+
+// currently unused cause im muy baka
+const getLikedSongsPlaylistSnapshotID = async (access_token) => {
+  let res = await fetch(
+    `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}?fields=snapshot_id`,
+    {
+      headers: {
+        Authorization: "Bearer " + access_token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  let data = await res.json();
+  return data.snapshot_id;
+};
+
+// not tested since postSongs position param was added
 const copyLikedSongs = (
   access_token,
   url = "https://api.spotify.com/v1/me/tracks?limit=50&offset=0"
@@ -266,13 +342,18 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
 
 const updater = async (access_token) => {
   setInterval(async () => {
+    let playlistLength = await getLikedSongsPlaylistLength(access_token);
+
     let likedSongs = await getLikedSongs(access_token);
-    let { map, length } = await getLikedSongsPlaylist(access_token);
+
     console.log(
-      `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${length}(data.total) ${map.size}(map.size)`
+      logPrefix() +
+        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
     );
 
-    if (likedSongs.size > length) {
+    if (likedSongs.size > playlistLength) {
+      let { map, length } = await getLikedSongsPlaylist(access_token);
+
       let howManySongsToBeAdded = [...likedSongs.values()].slice(
         map.size
       ).length;
@@ -280,14 +361,11 @@ const updater = async (access_token) => {
       let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
       if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
 
-      // if (length) songsToBeAdded = songsToBeAdded.reverse();
-
       // Split into chunks of 50
       let i,
         j,
         temporary,
         songCount = 0,
-        // songCount = length ? 0 : length,
         chunk = 50;
 
       for (i = 0, j = songsToBeAdded.length; i < j; i += chunk) {
@@ -297,4 +375,8 @@ const updater = async (access_token) => {
       }
     }
   }, 1000 * 60);
+};
+
+const test = async (access_token) => {
+  console.log(await getLikedSongsPlaylistSnapshotID(access_token));
 };
