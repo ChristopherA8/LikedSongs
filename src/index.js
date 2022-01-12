@@ -24,6 +24,7 @@ let client_secret = process.env.CLIENT_SECRET; // Your secret
 let redirect_uri = process.env.REDIRECT_URI; // Your redirect uri
 
 let global_refresh_token = "";
+let global_access_token = "";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,13 +44,15 @@ let generateRandomString = function (length) {
 // returns colored string with time for console logging
 const logPrefix = () => {
   return (
-    chalk.whiteBright("|") +
+    chalk.whiteBright.bold("|") +
+    " " +
     chalk.blue(
       `${new Date().toLocaleTimeString("en-US", {
         timeZone: "America/Chicago",
       })}`
     ) +
-    chalk.whiteBright("|") +
+    " " +
+    chalk.whiteBright.bold("|") +
     " "
   );
 };
@@ -120,6 +123,7 @@ app.get("/callback", function (req, res) {
           refresh_token = body.refresh_token;
 
         global_refresh_token = body.refresh_token;
+        global_access_token = body.access_token;
         console.log(
           "-------------------------------------------------------------"
         );
@@ -128,8 +132,7 @@ app.get("/callback", function (req, res) {
         console.log(
           "-------------------------------------------------------------"
         );
-        // test(access_token);
-        updater(access_token);
+        updater();
 
         let options = {
           url: "https://api.spotify.com/v1/me",
@@ -191,6 +194,24 @@ app.get("/refresh_token", function (req, res) {
 
 console.log("Listening on 8888");
 app.listen(8888);
+
+const getRefreshedAccessToken = async () => {
+  const params = new URLSearchParams();
+  params.append("grant_type", "refresh_token");
+  params.append("refresh_token", global_refresh_token);
+
+  let res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      Authorization:
+        "Basic " +
+        new Buffer(client_id + ":" + client_secret).toString("base64"),
+    },
+    body: params,
+  });
+  let data = await res.json();
+  return JSON.stringify(data.access_token);
+};
 
 const getLikedSongs = async (
   access_token,
@@ -340,16 +361,26 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
   // console.log(JSON.stringify(data));
 };
 
-const updater = async (access_token) => {
+const updater = async () => {
+  let access_token = global_access_token;
+
+  // Refresh the access token every hour(ish) 58 minutes
+  setInterval(async () => {
+    access_token = await getRefreshedAccessToken();
+    global_access_token = access_token;
+    console.log(logPrefix() + "Token refreshed: " + chalk.green(access_token));
+  }, 1000 * 60 * 58);
+
+  // Keep liked songs playlist updated with users liked songs
   setInterval(async () => {
     let playlistLength = await getLikedSongsPlaylistLength(access_token);
 
     let likedSongs = await getLikedSongs(access_token);
 
-    console.log(
-      logPrefix() +
-        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
-    );
+    // console.log(
+    //   logPrefix() +
+    //     `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
+    // );
 
     if (likedSongs.size > playlistLength) {
       let { map, length } = await getLikedSongsPlaylist(access_token);
@@ -378,5 +409,5 @@ const updater = async (access_token) => {
 };
 
 const test = async (access_token) => {
-  console.log(await getLikedSongsPlaylistSnapshotID(access_token));
+  console.log(await getRefreshedAccessToken());
 };
