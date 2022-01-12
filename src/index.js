@@ -95,10 +95,10 @@ app.get("/callback", function (req, res) {
 
   if (state === null || state !== storedState) {
     res.redirect(
-      "/#" +
-        querystring.stringify({
-          error: "state_mismatch",
-        })
+      "/#" + new URLSearchParams().append("error", "state_mismatch")
+      // querystring.stringify({
+      //   error: "state_mismatch",
+      // })
     );
   } else {
     res.clearCookie(stateKey);
@@ -112,7 +112,7 @@ app.get("/callback", function (req, res) {
       headers: {
         Authorization:
           "Basic " +
-          new Buffer(client_id + ":" + client_secret).toString("base64"),
+          new Buffer.from(client_id + ":" + client_secret).toString("base64"),
       },
       json: true,
     };
@@ -133,6 +133,7 @@ app.get("/callback", function (req, res) {
           "-------------------------------------------------------------"
         );
         updater();
+        // test();
 
         let options = {
           url: "https://api.spotify.com/v1/me",
@@ -173,7 +174,7 @@ app.get("/refresh_token", function (req, res) {
     headers: {
       Authorization:
         "Basic " +
-        new Buffer(client_id + ":" + client_secret).toString("base64"),
+        new Buffer.from(client_id + ":" + client_secret).toString("base64"),
     },
     form: {
       grant_type: "refresh_token",
@@ -205,12 +206,12 @@ const getRefreshedAccessToken = async () => {
     headers: {
       Authorization:
         "Basic " +
-        new Buffer(client_id + ":" + client_secret).toString("base64"),
+        new Buffer.from(client_id + ":" + client_secret).toString("base64"),
     },
     body: params,
   });
   let data = await res.json();
-  return JSON.stringify(data.access_token);
+  return data.access_token;
 };
 
 const getLikedSongs = async (
@@ -392,6 +393,17 @@ const updater = async () => {
       let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
       if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
 
+      let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
+      if (howManySongsToBeAdded > 1)
+        songNamesToBeAdded = songNamesToBeAdded.reverse();
+
+      console.log(
+        logPrefix() +
+          `${
+            howManySongsToBeAdded > 1 ? "Added songs:" : "Added song:"
+          } ${songNamesToBeAdded.join(", ")}`
+      );
+
       // Split into chunks of 50
       let i,
         j,
@@ -408,6 +420,11 @@ const updater = async () => {
   }, 1000 * 60);
 };
 
-const test = async (access_token) => {
-  console.log(await getRefreshedAccessToken());
+const test = async () => {
+  let playlistLength = await getLikedSongsPlaylistLength(global_access_token);
+  console.log(playlistLength);
+  let new_token = await getRefreshedAccessToken();
+  console.log(new_token);
+  let newPlaylistLength = await getLikedSongsPlaylistLength(new_token);
+  console.log(newPlaylistLength);
 };
