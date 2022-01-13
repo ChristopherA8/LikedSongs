@@ -378,10 +378,10 @@ const updater = async () => {
 
     let likedSongs = await getLikedSongs(access_token);
 
-    // console.log(
-    //   logPrefix() +
-    //     `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
-    // );
+    console.log(
+      logPrefix() +
+        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
+    );
 
     if (likedSongs.size > playlistLength) {
       let { map, length } = await getLikedSongsPlaylist(access_token);
