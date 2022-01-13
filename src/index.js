@@ -233,7 +233,7 @@ const getLikedSongs = async (
   }
 
   if (data.next) {
-    await sleep(5000);
+    await sleep(3000);
     await getLikedSongs(access_token, data.next, likedSongs);
   }
   return likedSongs;
@@ -258,7 +258,7 @@ const getLikedSongsPlaylist = async (
   }
 
   if (data.next) {
-    await sleep(5000);
+    await sleep(3000);
     await getLikedSongsPlaylist(access_token, data.next, likedSongsMap);
   }
   return { map: likedSongsMap, length: data.total };
