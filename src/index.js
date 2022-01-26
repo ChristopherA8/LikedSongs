@@ -193,6 +193,18 @@ app.get("/refresh_token", function (req, res) {
   });
 });
 
+app.get("/delete_playlist_items", function (req, res) {
+  deleteLikedSongsPlaylistTracks(global_access_token);
+  console.log("u have no liked songs now\nL");
+  res.redirect("/#");
+});
+
+app.get("/liked_songs", function (req, res) {
+  likedSongs(global_access_token);
+  console.log("rly liked songs");
+  res.redirect("/#");
+});
+
 console.log("Listening on 8888");
 app.listen(8888);
 
@@ -234,6 +246,7 @@ const getLikedSongs = async (
 
   if (data.next) {
     await sleep(3000);
+    console.log(JSON.stringify(data));
     await getLikedSongs(access_token, data.next, likedSongs);
   }
   return likedSongs;
@@ -262,6 +275,68 @@ const getLikedSongsPlaylist = async (
     await getLikedSongsPlaylist(access_token, data.next, likedSongsMap);
   }
   return { map: likedSongsMap, length: data.total };
+};
+
+const deleteSongs = async (body, access_token) => {
+  if (body.tracks.length > 100) return console.log("Array exceeds 100 songs");
+
+  let res = await fetch(
+    `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: "Bearer " + access_token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  let data = await res.json();
+};
+
+const deleteLikedSongsPlaylistTracks = async (access_token) => {
+  let { map } = await getLikedSongsPlaylist(access_token);
+  let uris = [...map.values()];
+
+  let body = {
+    tracks: [],
+  };
+
+  // Split into chunks of 100
+  let i,
+    j,
+    temporary,
+    chunk = 100;
+
+  for (i = 0, j = uris.length; i < j; i += chunk) {
+    body.tracks = [];
+    let urisChunk = uris.slice(i, i + chunk);
+    for (let uri of urisChunk) {
+      body.tracks.push({ uri: uri });
+    }
+    await deleteSongs(body, access_token);
+  }
+
+  // let res = await fetch(url, {
+  //   method: "DELETE",
+  //   headers: {
+  //     Authorization: "Bearer " + access_token,
+  //     Accept: "application/json",
+  //     "Content-Type": "application/json",
+  //   },
+  // });
+  // let data = await res.json();
+
+  // for (const item of data.items) {
+  //   likedSongsMap.set(item.track.name, item.track.uri);
+  // }
+
+  // if (data.next) {
+  //   await sleep(3000);
+  //   await getLikedSongsPlaylist(access_token, data.next, likedSongsMap);
+  // }
+  // return { map: likedSongsMap, length: data.total };
 };
 
 // This is unused because it includes other stuff too
@@ -362,6 +437,50 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
   // console.log(JSON.stringify(data));
 };
 
+async function likedSongs(access_token) {
+  let playlistLength = await getLikedSongsPlaylistLength(access_token);
+
+  let likedSongs = await getLikedSongs(access_token);
+
+  console.log(
+    logPrefix() +
+      `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
+  );
+
+  if (likedSongs.size > playlistLength) {
+    let { map, length } = await getLikedSongsPlaylist(access_token);
+
+    let howManySongsToBeAdded = [...likedSongs.values()].slice(map.size).length;
+
+    let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
+    if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
+
+    let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
+    if (howManySongsToBeAdded > 1)
+      songNamesToBeAdded = songNamesToBeAdded.reverse();
+
+    console.log(
+      logPrefix() +
+        `${
+          howManySongsToBeAdded > 1 ? "Added songs:" : "Added song:"
+        } ${songNamesToBeAdded.join(", ")}`
+    );
+
+    // Split into chunks of 50
+    let i,
+      j,
+      temporary,
+      songCount = 0,
+      chunk = 50;
+
+    for (i = 0, j = songsToBeAdded.length; i < j; i += chunk) {
+      temporary = songsToBeAdded.slice(i, i + chunk);
+      await postSongs(temporary, songCount, access_token);
+      songCount += 50;
+    }
+  }
+}
+
 const updater = async () => {
   let access_token = global_access_token;
 
@@ -373,51 +492,10 @@ const updater = async () => {
   }, 1000 * 60 * 30);
 
   // Keep liked songs playlist updated with users liked songs
-  setInterval(async () => {
-    let playlistLength = await getLikedSongsPlaylistLength(access_token);
-
-    let likedSongs = await getLikedSongs(access_token);
-
-    console.log(
-      logPrefix() +
-        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
-    );
-
-    if (likedSongs.size > playlistLength) {
-      let { map, length } = await getLikedSongsPlaylist(access_token);
-
-      let howManySongsToBeAdded = [...likedSongs.values()].slice(
-        map.size
-      ).length;
-
-      let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
-      if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
-
-      let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
-      if (howManySongsToBeAdded > 1)
-        songNamesToBeAdded = songNamesToBeAdded.reverse();
-
-      console.log(
-        logPrefix() +
-          `${
-            howManySongsToBeAdded > 1 ? "Added songs:" : "Added song:"
-          } ${songNamesToBeAdded.join(", ")}`
-      );
-
-      // Split into chunks of 50
-      let i,
-        j,
-        temporary,
-        songCount = 0,
-        chunk = 50;
-
-      for (i = 0, j = songsToBeAdded.length; i < j; i += chunk) {
-        temporary = songsToBeAdded.slice(i, i + chunk);
-        await postSongs(temporary, songCount, access_token);
-        songCount += 50;
-      }
-    }
-  }, 1000 * 60);
+  // likedSongs(access_token);
+  // setInterval((access_token) => {
+  //   likedSongs(access_token);
+  // }, 1000 * 60);
 };
 
 const test = async () => {
