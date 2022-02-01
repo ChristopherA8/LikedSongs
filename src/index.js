@@ -25,6 +25,7 @@ let redirect_uri = process.env.REDIRECT_URI; // Your redirect uri
 
 let global_refresh_token = "";
 let global_access_token = "";
+let isUpdaterRunning = false;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -132,8 +133,7 @@ app.get("/callback", function (req, res) {
         console.log(
           "-------------------------------------------------------------"
         );
-        updater();
-        // test();
+        setup();
 
         let options = {
           url: "https://api.spotify.com/v1/me",
@@ -199,14 +199,30 @@ app.get("/delete_playlist_items", function (req, res) {
   res.redirect("/#");
 });
 
-app.get("/liked_songs", function (req, res) {
-  likedSongs(global_access_token);
+app.get("/liked_songs", async function (req, res) {
   console.log("rly liked songs");
+
+  await likedSongs(global_access_token)
+    .then((res) => console.log(logPrefix() + res))
+    .catch((err) => console.log(logPrefix() + err));
+  res.redirect("/#");
+});
+
+app.get("/toggle_updater", function (req, res) {
+  isUpdaterRunning ? (isUpdaterRunning = false) : (isUpdaterRunning = true);
+
+  console.log("isUpdaterRunning: " + isUpdaterRunning);
   res.redirect("/#");
 });
 
 console.log("Listening on 8888");
 app.listen(8888);
+
+const setup = () => {
+  // Startup stuff
+  tokenUpdater();
+  likedSongsUpdater();
+};
 
 const getRefreshedAccessToken = async () => {
   const params = new URLSearchParams();
@@ -240,13 +256,23 @@ const getLikedSongs = async (
   });
   let data = await res.json();
 
+  if (!data) {
+    console.log(
+      logPrefix() +
+        `Data returned from ` +
+        chalk.red(url) +
+        " was empty ¯\\_(ツ)_/¯"
+    );
+    return;
+  }
+
   for (const item of data.items) {
     likedSongs.set(item.track.name, item.track.uri);
   }
 
   if (data.next) {
-    await sleep(3000);
-    console.log(JSON.stringify(data));
+    await sleep(500);
+    // console.log(JSON.stringify(data));
     await getLikedSongs(access_token, data.next, likedSongs);
   }
   return likedSongs;
@@ -266,12 +292,22 @@ const getLikedSongsPlaylist = async (
   });
   let data = await res.json();
 
+  if (!data) {
+    console.log(
+      logPrefix() +
+        `Data returned from ` +
+        chalk.red(url) +
+        " was empty ¯\\_(ツ)_/¯"
+    );
+    return;
+  }
+
   for (const item of data.items) {
     likedSongsMap.set(item.track.name, item.track.uri);
   }
 
   if (data.next) {
-    await sleep(3000);
+    await sleep(500);
     await getLikedSongsPlaylist(access_token, data.next, likedSongsMap);
   }
   return { map: likedSongsMap, length: data.total };
@@ -367,6 +403,17 @@ const getLikedSongsPlaylistLength = async (access_token) => {
     }
   );
   let data = await res.json();
+
+  if (!data) {
+    console.log(
+      logPrefix() +
+        `Data returned from ` +
+        chalk.red(url) +
+        " was empty ¯\\_(ツ)_/¯"
+    );
+    return;
+  }
+
   return data.total;
 };
 
@@ -438,64 +485,91 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
 };
 
 async function likedSongs(access_token) {
-  let playlistLength = await getLikedSongsPlaylistLength(access_token);
+  return new Promise(async (resolve, reject) => {
+    let playlistLength = await getLikedSongsPlaylistLength(access_token);
+    let likedSongs = await getLikedSongs(access_token);
 
-  let likedSongs = await getLikedSongs(access_token);
-
-  console.log(
-    logPrefix() +
-      `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
-  );
-
-  if (likedSongs.size > playlistLength) {
-    let { map, length } = await getLikedSongsPlaylist(access_token);
-
-    let howManySongsToBeAdded = [...likedSongs.values()].slice(map.size).length;
-
-    let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
-    if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
-
-    let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
-    if (howManySongsToBeAdded > 1)
-      songNamesToBeAdded = songNamesToBeAdded.reverse();
+    if (!likedSongs || playlistLength == undefined) {
+      reject("Unable to get playlist at this time (╯°□°）╯︵ ┻━┻");
+      return;
+    }
 
     console.log(
       logPrefix() +
-        `${
-          howManySongsToBeAdded > 1 ? "Added songs:" : "Added song:"
-        } ${songNamesToBeAdded.join(", ")}`
+        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
     );
 
-    // Split into chunks of 50
-    let i,
-      j,
-      temporary,
-      songCount = 0,
-      chunk = 50;
+    if (likedSongs.size > playlistLength) {
+      let { map, length } = await getLikedSongsPlaylist(access_token);
 
-    for (i = 0, j = songsToBeAdded.length; i < j; i += chunk) {
-      temporary = songsToBeAdded.slice(i, i + chunk);
-      await postSongs(temporary, songCount, access_token);
-      songCount += 50;
+      let howManySongsToBeAdded = [...likedSongs.values()].slice(
+        map.size
+      ).length;
+
+      let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
+      if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
+
+      let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
+      if (howManySongsToBeAdded > 1)
+        songNamesToBeAdded = songNamesToBeAdded.reverse();
+
+      console.log(
+        logPrefix() +
+          `${
+            howManySongsToBeAdded > 1 ? "Added songs:" : "Added song:"
+          } ${songNamesToBeAdded.join(", ")}`
+      );
+
+      // Split into chunks of 50
+      let i,
+        j,
+        temporary,
+        songCount = 0,
+        chunk = 50;
+
+      for (i = 0, j = songsToBeAdded.length; i < j; i += chunk) {
+        temporary = songsToBeAdded.slice(i, i + chunk);
+        await postSongs(temporary, songCount, access_token);
+        songCount += 50;
+
+        // Last iteration of for loop
+        if (i + 50 >= songsToBeAdded.length) {
+          resolve("Done adding songs!");
+          return;
+        }
+      }
+    } else {
+      resolve("No new songs added, updater run finished successfully!");
+      return;
     }
-  }
+  });
 }
 
-const updater = async () => {
-  let access_token = global_access_token;
-
+const tokenUpdater = async () => {
   // Refresh the access token every hour(ish) 58 minutes
   setInterval(async () => {
-    access_token = await getRefreshedAccessToken();
-    global_access_token = access_token;
+    global_access_token = await getRefreshedAccessToken();
     console.log(logPrefix() + "Token refreshed: " + chalk.green(access_token));
   }, 1000 * 60 * 30);
+};
 
+const likedSongsUpdater = async () => {
   // Keep liked songs playlist updated with users liked songs
-  // likedSongs(access_token);
-  // setInterval((access_token) => {
-  //   likedSongs(access_token);
-  // }, 1000 * 60);
+
+  async function customInterval() {
+    await sleep(5000);
+
+    if (isUpdaterRunning) {
+      console.log(logPrefix() + "Updater fired :D");
+
+      let res = await likedSongs(global_access_token)
+        .then((res) => console.log(logPrefix() + res))
+        .catch((err) => console.log(logPrefix() + err));
+    }
+
+    customInterval();
+  }
+  customInterval();
 };
 
 const test = async () => {
