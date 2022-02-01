@@ -549,7 +549,9 @@ const tokenUpdater = async () => {
   // Refresh the access token every hour(ish) 58 minutes
   setInterval(async () => {
     global_access_token = await getRefreshedAccessToken();
-    console.log(logPrefix() + "Token refreshed: " + chalk.green(access_token));
+    console.log(
+      logPrefix() + "Token refreshed: " + chalk.green(global_access_token)
+    );
   }, 1000 * 60 * 30);
 };
 
