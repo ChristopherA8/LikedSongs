@@ -546,7 +546,7 @@ async function likedSongs(access_token) {
 }
 
 const tokenUpdater = async () => {
-  // Refresh the access token every hour(ish) 58 minutes
+  // Refresh the access token every 30 minutes
   setInterval(async () => {
     global_access_token = await getRefreshedAccessToken();
     console.log(
