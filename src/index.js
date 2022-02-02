@@ -267,12 +267,21 @@ const getLikedSongs = async (
   }
 
   for (const item of data.items) {
-    likedSongs.set(item.track.name, item.track.uri);
+    likedSongs.set(item.track.uri, item.track.name);
   }
+  /*   for (const item of data.items) {
+    if (item.track.is_playable) {
+      if (item.track.linked_from) {
+        console.log(JSON.stringify(item.track.linked_from, null, 2));
+        likedSongs.set(item.track.linked_from.name, item.track.linked_from.uri);
+      } else {
+        likedSongs.set(item.track.name, item.track.uri);
+      }
+    }
+  } */
 
   if (data.next) {
     await sleep(500);
-    // console.log(JSON.stringify(data));
     await getLikedSongs(access_token, data.next, likedSongs);
   }
   return likedSongs;
@@ -280,7 +289,7 @@ const getLikedSongs = async (
 
 const getLikedSongsPlaylist = async (
   access_token,
-  url = `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks?limit=50&offset=0`,
+  url = `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks?&limit=50&offset=0`,
   likedSongsMap = new Map()
 ) => {
   let res = await fetch(url, {
@@ -303,7 +312,7 @@ const getLikedSongsPlaylist = async (
   }
 
   for (const item of data.items) {
-    likedSongsMap.set(item.track.name, item.track.uri);
+    likedSongsMap.set(item.track.uri, item.track.name);
   }
 
   if (data.next) {
@@ -333,7 +342,7 @@ const deleteSongs = async (body, access_token) => {
 
 const deleteLikedSongsPlaylistTracks = async (access_token) => {
   let { map } = await getLikedSongsPlaylist(access_token);
-  let uris = [...map.values()];
+  let uris = [...map.keys()];
 
   let body = {
     tracks: [],
@@ -393,7 +402,7 @@ const getLikedSongsLength = async (access_token) => {
 
 const getLikedSongsPlaylistLength = async (access_token) => {
   let res = await fetch(
-    `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks?fields=total&limit=1&offset=0`,
+    `https://api.spotify.com/v1/playlists/${process.env.LIKED_SONGS_ID}/tracks?market=US&fields=total&limit=1&offset=0`,
     {
       headers: {
         Authorization: "Bearer " + access_token,
@@ -484,7 +493,7 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
   // console.log(JSON.stringify(data));
 };
 
-async function likedSongs(access_token) {
+const likedSongs = async (access_token) => {
   return new Promise(async (resolve, reject) => {
     let playlistLength = await getLikedSongsPlaylistLength(access_token);
     let likedSongs = await getLikedSongs(access_token);
@@ -502,14 +511,14 @@ async function likedSongs(access_token) {
     if (likedSongs.size > playlistLength) {
       let { map, length } = await getLikedSongsPlaylist(access_token);
 
-      let howManySongsToBeAdded = [...likedSongs.values()].slice(
-        map.size
-      ).length;
+      let howManySongsToBeAdded = [...likedSongs.keys()].slice(map.size).length;
 
-      let songsToBeAdded = [...likedSongs.values()].reverse().slice(map.size);
+      let songsToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
       if (howManySongsToBeAdded > 1) songsToBeAdded = songsToBeAdded.reverse();
 
-      let songNamesToBeAdded = [...likedSongs.keys()].reverse().slice(map.size);
+      let songNamesToBeAdded = [...likedSongs.values()]
+        .reverse()
+        .slice(map.size);
       if (howManySongsToBeAdded > 1)
         songNamesToBeAdded = songNamesToBeAdded.reverse();
 
@@ -543,7 +552,7 @@ async function likedSongs(access_token) {
       return;
     }
   });
-}
+};
 
 const tokenUpdater = async () => {
   // Refresh the access token every 30 minutes
@@ -572,13 +581,4 @@ const likedSongsUpdater = async () => {
     customInterval();
   }
   customInterval();
-};
-
-const test = async () => {
-  let playlistLength = await getLikedSongsPlaylistLength(global_access_token);
-  console.log(playlistLength);
-  let new_token = await getRefreshedAccessToken();
-  console.log(new_token);
-  let newPlaylistLength = await getLikedSongsPlaylistLength(new_token);
-  console.log(newPlaylistLength);
 };
