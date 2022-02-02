@@ -555,13 +555,13 @@ const likedSongs = async (access_token) => {
 };
 
 const tokenUpdater = async () => {
-  // Refresh the access token every 30 minutes
+  // Refresh the access token every 50 minutes
   setInterval(async () => {
     global_access_token = await getRefreshedAccessToken();
     console.log(
       logPrefix() + "Token refreshed: " + chalk.green(global_access_token)
     );
-  }, 1000 * 60 * 30);
+  }, 1000 * 60 * 50);
 };
 
 const likedSongsUpdater = async () => {
