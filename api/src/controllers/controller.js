@@ -2,14 +2,14 @@ import mongoose from "mongoose";
 const { model } = mongoose;
 const task = model("Users");
 
-export function listTasks(req, res) {
+export function listUsers(req, res) {
   task.find({}, (err, task) => {
     if (err) res.send(err);
     res.json(task);
   });
 }
 
-export function createTask(req, res) {
+export function createUser(req, res) {
   const new_task = new task(req.body);
   new_task.save((err, task) => {
     if (err) res.send(err);
@@ -17,14 +17,14 @@ export function createTask(req, res) {
   });
 }
 
-export function readTask(req, res) {
+export function readUser(req, res) {
   task.findById(req.params.taskId, (err, task) => {
     if (err) res.send(err);
     res.json(task);
   });
 }
 
-export function updateTask(req, res) {
+export function updateUser(req, res) {
   task.findOneAndUpdate(
     { _id: req.params.taskId },
     req.body,
@@ -36,7 +36,7 @@ export function updateTask(req, res) {
   );
 }
 
-export function deleteTask(req, res) {
+export function deleteUser(req, res) {
   task.remove(
     {
       _id: req.params.taskId,

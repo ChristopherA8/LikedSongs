@@ -30,11 +30,7 @@ This was created to solve the problem of the liked songs playlist being private.
 
 ## Running
 
-To run the program run
-
-```
-node .
-```
+To run the program run `node .` inside of the /website folder
 
 inside the project folder. You should see `Listening on 8888`
 
