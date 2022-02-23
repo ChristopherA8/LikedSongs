@@ -4,6 +4,8 @@ Show off your spotify liked songs in a public playlist
 
 This was created to solve the problem of the liked songs playlist being private. Since there is no option to make this list of songs public this program checks for new liked songs once a minute and adds them to a public playlist.
 
+These instructions are probably wrong as of 2/22/22
+
 ## Setup
 
 1. Create a spotify application
