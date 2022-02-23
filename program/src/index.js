@@ -215,9 +215,6 @@ app.get("/toggle_updater", function (req, res) {
   res.redirect("/#");
 });
 
-console.log("Listening on 8888");
-app.listen(8888);
-
 const setup = () => {
   // Startup stuff
   tokenUpdater();
@@ -582,3 +579,18 @@ const likedSongsUpdater = async () => {
   }
   customInterval();
 };
+
+if (!process.env.REFRESH_TOKEN) {
+  console.log("Listening on 8888");
+  app.listen(8888);
+} else {
+  global_refresh_token = process.env.REFRESH_TOKEN;
+  global_access_token = await getRefreshedAccessToken();
+
+  console.log("-------------------------------------------------------------");
+  console.log(`refresh_token: ${chalk.green(global_refresh_token)}`);
+  console.log(`access_token: ${chalk.green(global_access_token)}`);
+  console.log("-------------------------------------------------------------");
+
+  setup();
+}
