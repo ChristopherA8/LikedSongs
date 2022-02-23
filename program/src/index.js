@@ -23,9 +23,9 @@ let client_id = process.env.CLIENT_ID; // Your client id
 let client_secret = process.env.CLIENT_SECRET; // Your secret
 let redirect_uri = process.env.REDIRECT_URI; // Your redirect uri
 
-let global_refresh_token = "";
-let global_access_token = "";
-let isUpdaterRunning = false;
+let global_refresh_token = process.env.REFRESH_TOKEN || "";
+let global_access_token = process.env.ACCESS_TOKEN || "";
+let isUpdaterRunning = process.env.RUN_UPDATER || false;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -584,7 +584,6 @@ if (!process.env.REFRESH_TOKEN) {
   console.log("Listening on 8888");
   app.listen(8888);
 } else {
-  global_refresh_token = process.env.REFRESH_TOKEN;
   global_access_token = await getRefreshedAccessToken();
 
   console.log("-------------------------------------------------------------");
