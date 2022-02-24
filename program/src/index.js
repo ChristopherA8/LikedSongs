@@ -1,6 +1,6 @@
 // Server
-import express from "express"; // Express web server framework
-import request from "request"; // "Request" library
+import express from "express";
+import request from "request";
 import cors from "cors";
 import querystring from "querystring";
 import cookieParser from "cookie-parser";
@@ -566,7 +566,7 @@ const likedSongsUpdater = async () => {
   // Keep liked songs playlist updated with users liked songs
 
   async function customInterval() {
-    await sleep(10000);
+    await sleep(30000);
 
     if (isUpdaterRunning) {
       console.log(logPrefix() + "Updater fired :D");
