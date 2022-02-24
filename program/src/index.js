@@ -27,9 +27,9 @@ let global_refresh_token = process.env.REFRESH_TOKEN || "";
 let global_access_token = process.env.ACCESS_TOKEN || "";
 let isUpdaterRunning = process.env.RUN_UPDATER || false;
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const sleep = (ms) => {
+  return new Promise((r) => setTimeout(r, ms));
+};
 
 let generateRandomString = function (length) {
   let text = "";
@@ -493,20 +493,21 @@ const postSongs = async (likedSongs, position = 0, access_token) => {
 const likedSongs = async (access_token) => {
   return new Promise(async (resolve, reject) => {
     let playlistLength = await getLikedSongsPlaylistLength(access_token);
-    let likedSongs = await getLikedSongs(access_token);
+    let likedSongsLength = await getLikedSongsLength(access_token);
 
-    if (!likedSongs || playlistLength == undefined) {
+    if (!likedSongsLength || playlistLength == undefined) {
       reject("Unable to get playlist at this time (╯°□°）╯︵ ┻━┻");
       return;
     }
 
     console.log(
       logPrefix() +
-        `Liked Songs: ${likedSongs.size} Liked Songs Playlist: ${playlistLength}`
+        `Liked Songs: ${likedSongsLength} Liked Songs Playlist: ${playlistLength}`
     );
 
-    if (likedSongs.size > playlistLength) {
-      let { map, length } = await getLikedSongsPlaylist(access_token);
+    if (likedSongsLength > playlistLength) {
+      let likedSongs = await getLikedSongs(access_token);
+      let { map } = await getLikedSongsPlaylist(access_token);
 
       let howManySongsToBeAdded = [...likedSongs.keys()].slice(map.size).length;
 
@@ -565,7 +566,7 @@ const likedSongsUpdater = async () => {
   // Keep liked songs playlist updated with users liked songs
 
   async function customInterval() {
-    await sleep(5000);
+    await sleep(10000);
 
     if (isUpdaterRunning) {
       console.log(logPrefix() + "Updater fired :D");
