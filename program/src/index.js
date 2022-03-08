@@ -440,7 +440,8 @@ const getLikedSongsPlaylistSnapshotID = async (access_token) => {
 };
 
 // not tested since postSongs position param was added
-const copyLikedSongs = (
+// edit: NOT FUNCTIONAL
+const copyLikedSongs = async (
   access_token,
   url = "https://api.spotify.com/v1/me/tracks?limit=50&offset=0"
 ) => {
@@ -454,7 +455,7 @@ const copyLikedSongs = (
     },
   })
     .then((res) => res.json())
-    .then((res) => {
+    .then(async (res) => {
       for (const item of res.items) {
         // console.log(
         //   `Name: ${item.track.name}, Id: ${item.track.id}, uri: ${item.track.uri}, href: ${item.track.href}, addedAt: ${item.added_at}`
@@ -462,7 +463,25 @@ const copyLikedSongs = (
         likedSongs.set(item.track.name, item.track.uri);
       }
       // console.log(`Limit: ${res.limit}, Next: ${res.next}`);
-      postSongs([...likedSongs.values()].join(","), 0, access_token);
+      // Split into chunks of 50
+      let i,
+        j,
+        temporary,
+        songCount = 0,
+        chunk = 50;
+
+      for (i = 0, j = [...likedSongs.values()].length; i < j; i += chunk) {
+        temporary = [...likedSongs.values()].slice(i, i + chunk);
+        await postSongs(temporary.join(","), songCount, access_token);
+        songCount += 50;
+
+        // Last iteration of for loop
+        if (i + 50 >= [...likedSongs.values()].length) {
+          console.log("Done adding songs!");
+        }
+      }
+
+      // postSongs([...likedSongs.values()].join(","), 0, access_token);
       // recursion go brrr
       if (res.next) copyLikedSongs(access_token, res.next);
     });
